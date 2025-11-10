@@ -29,14 +29,12 @@ export class SlackSender implements SenderStrategy {
       );
       return {
         success: true,
-        delivered: true,
         statusCode: 200,
       };
     } catch (error) {
       this.logger.error(`[SLACK] ❌ Error al enviar mensaje: ${error.message}`);
       return {
         success: false,
-        delivered: false,
         message: error.message,
       };
     }
@@ -59,7 +57,6 @@ export class SlackSender implements SenderStrategy {
       );
 
       const allSuccess = results.every((result) => result.success);
-      const allDelivered = results.every((result) => result.delivered);
 
       if (allSuccess) {
         this.logger.log(
@@ -73,14 +70,12 @@ export class SlackSender implements SenderStrategy {
 
       return {
         success: allSuccess,
-        delivered: allDelivered,
         message: `${results.filter((r) => r.success).length}/${results.length} enviados`,
       };
     } catch (error) {
       this.logger.error(`[SLACK] ❌ Error en envío masivo: ${error.message}`);
       return {
         success: false,
-        delivered: false,
         message: error.message,
       };
     }

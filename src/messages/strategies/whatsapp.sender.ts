@@ -27,7 +27,6 @@ export class WhatsappSender implements SenderStrategy {
       );
       return {
         success: true,
-        delivered: true,
         statusCode: 200,
       };
     } catch (error) {
@@ -36,7 +35,6 @@ export class WhatsappSender implements SenderStrategy {
       );
       return {
         success: false,
-        delivered: false,
         message: error.message,
       };
     }
@@ -59,7 +57,6 @@ export class WhatsappSender implements SenderStrategy {
       );
 
       const allSuccess = results.every((result) => result.success);
-      const allDelivered = results.every((result) => result.delivered);
 
       if (allSuccess) {
         this.logger.log(
@@ -73,7 +70,6 @@ export class WhatsappSender implements SenderStrategy {
 
       return {
         success: allSuccess,
-        delivered: allDelivered,
         message: `${results.filter((r) => r.success).length}/${results.length} enviados`,
       };
     } catch (error) {
@@ -82,7 +78,6 @@ export class WhatsappSender implements SenderStrategy {
       );
       return {
         success: false,
-        delivered: false,
         message: error.message,
       };
     }

@@ -45,7 +45,6 @@ export class TelegramSender implements SenderStrategy {
         );
         return {
           success: false,
-          delivered: false,
           message: 'Token no configurado',
         };
       }
@@ -69,7 +68,6 @@ export class TelegramSender implements SenderStrategy {
 
         return {
           success: true,
-          delivered: true,
           statusCode: response.status,
         };
       } else {
@@ -78,7 +76,6 @@ export class TelegramSender implements SenderStrategy {
         );
         return {
           success: false,
-          delivered: false,
           statusCode: response.status,
           message: 'Error en respuesta de API',
         };
@@ -93,7 +90,6 @@ export class TelegramSender implements SenderStrategy {
         );
         return {
           success: false,
-          delivered: false,
           statusCode: error.response?.status,
           message: error.response?.data?.description || error.message,
         };
@@ -101,7 +97,6 @@ export class TelegramSender implements SenderStrategy {
         this.logger.error(`[TELEGRAM] ❌ Error inesperado: ${error.message}`);
         return {
           success: false,
-          delivered: false,
           message: error.message,
         };
       }
@@ -131,9 +126,6 @@ export class TelegramSender implements SenderStrategy {
       );
 
       const successCount = results.filter((result) => result.success).length;
-      const deliveredCount = results.filter(
-        (result) => result.delivered,
-      ).length;
       const failedCount = results.length - successCount;
 
       if (failedCount === 0) {
@@ -142,8 +134,7 @@ export class TelegramSender implements SenderStrategy {
         );
         return {
           success: true,
-          delivered: deliveredCount === results.length,
-          message: `${successCount}/${results.length} mensajes entregados`,
+          message: `${successCount}/${results.length} mensajes enviados`,
         };
       } else {
         this.logger.warn(
@@ -151,7 +142,6 @@ export class TelegramSender implements SenderStrategy {
         );
         return {
           success: false,
-          delivered: deliveredCount > 0,
           message: `${successCount} exitosos, ${failedCount} fallidos`,
         };
       }
@@ -161,7 +151,6 @@ export class TelegramSender implements SenderStrategy {
       );
       return {
         success: false,
-        delivered: false,
         message: error.message,
       };
     }

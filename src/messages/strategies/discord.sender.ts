@@ -28,8 +28,7 @@ export class DiscordSender implements SenderStrategy {
         `[DISCORD] ✅ Mensaje enviado exitosamente a ${data.recipient}`,
       );
       return {
-        success: false,
-        delivered: false,
+        success: true,
         statusCode: 200,
       };
     } catch (error) {
@@ -38,7 +37,6 @@ export class DiscordSender implements SenderStrategy {
       );
       return {
         success: false,
-        delivered: false,
         message: error.message,
       };
     }
@@ -61,7 +59,6 @@ export class DiscordSender implements SenderStrategy {
       );
 
       const allSuccess = results.every((result) => result.success);
-      const allDelivered = results.every((result) => result.delivered);
 
       if (allSuccess) {
         this.logger.log(
@@ -75,14 +72,12 @@ export class DiscordSender implements SenderStrategy {
 
       return {
         success: allSuccess,
-        delivered: allDelivered,
         message: `${results.filter((r) => r.success).length}/${results.length} enviados`,
       };
     } catch (error) {
       this.logger.error(`[DISCORD] ❌ Error en envío masivo: ${error.message}`);
       return {
         success: false,
-        delivered: false,
         message: error.message,
       };
     }

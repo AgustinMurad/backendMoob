@@ -40,7 +40,6 @@ export class MessagesService {
 
       // Intentar enviar el mensaje usando la estrategia
       let sendResult: any;
-      let delivered: boolean = false;
 
       if (recipients.length === 1) {
         // Envío individual
@@ -49,7 +48,6 @@ export class MessagesService {
           content,
           file,
         });
-        delivered = sendResult.delivered || false;
       } else {
         // Envío masivo
         if (senderStrategy.sendMassMessage) {
@@ -58,7 +56,6 @@ export class MessagesService {
             content,
             file,
           });
-          delivered = sendResult.delivered || false;
         } else {
           // Fallback: enviar uno por uno si no hay método masivo
           const results = await Promise.all(
@@ -66,10 +63,8 @@ export class MessagesService {
               senderStrategy.sendMessage({ recipient, content, file }),
             ),
           );
-          delivered = results.every((result) => result.delivered === true);
           sendResult = {
             success: results.every((result) => result.success),
-            delivered,
           };
         }
       }
@@ -82,13 +77,12 @@ export class MessagesService {
         content,
         file,
         sent: sendResult.success || false,
-        delivered, // Se marca como delivered si la respuesta fue exitosa (200)
       });
 
       const savedMessage = await newMessage.save();
 
       this.logger.log(
-        `Mensaje ${String(savedMessage._id)} guardado. Estado de envío: ${sendResult.success ? 'Exitoso' : 'Fallido'}, Entregado: ${delivered}`,
+        `Mensaje ${String(savedMessage._id)} guardado. Estado de envío: ${sendResult.success ? 'Exitoso' : 'Fallido'}`,
       );
 
       return savedMessage;
@@ -104,17 +98,27 @@ export class MessagesService {
   }
 
   /**
-   * Obtiene todos los mensajes enviados por un usuario específico
+   * Obtiene los mensajes enviados por un usuario específico con paginación
    * @param userId ID del usuario autenticado
-   * @returns Array de mensajes del usuario
+   * @param limit Número máximo de mensajes a retornar (por defecto: 10)
+   * @param offset Número de mensajes a saltar (por defecto: 0)
+   * @returns Array de mensajes del usuario paginados
    */
-  async getUserMessages(userId: string): Promise<MessageDocument[]> {
+  async getUserMessages(
+    userId: string,
+    limit: number = 10,
+    offset: number = 0,
+  ): Promise<MessageDocument[]> {
     try {
-      this.logger.log(`Consultando mensajes del usuario ${userId}`);
+      this.logger.log(
+        `Consultando mensajes del usuario ${userId} (limit: ${limit}, offset: ${offset})`,
+      );
 
       const messages = await this.messageModel
         .find({ senderId: userId })
         .sort({ createdAt: -1 }) // Más recientes primero
+        .skip(offset) // Saltar los primeros 'offset' mensajes
+        .limit(limit) // Limitar la cantidad de resultados
         .exec();
 
       this.logger.log(
@@ -128,6 +132,26 @@ export class MessagesService {
         error.stack,
       );
       throw new InternalServerErrorException('Error al obtener los mensajes');
+    }
+  }
+
+  /**
+   * Obtiene el total de mensajes de un usuario
+   * @param userId ID del usuario autenticado
+   * @returns Número total de mensajes
+   */
+  async getTotalUserMessages(userId: string): Promise<number> {
+    try {
+      const total = await this.messageModel.countDocuments({
+        senderId: userId,
+      });
+      return total;
+    } catch (error) {
+      this.logger.error(
+        `Error al contar mensajes del usuario ${userId}: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Error al contar los mensajes');
     }
   }
 
@@ -149,10 +173,6 @@ export class MessagesService {
         senderId: userId,
         sent: false,
       });
-      const delivered = await this.messageModel.countDocuments({
-        senderId: userId,
-        delivered: true,
-      });
 
       const byPlatform = await this.messageModel.aggregate([
         { $match: { senderId: userId } },
@@ -163,7 +183,6 @@ export class MessagesService {
         total,
         sent,
         failed,
-        delivered,
         byPlatform: byPlatform.reduce((acc: Record<string, number>, item) => {
           acc[item._id] = item.count;
           return acc;

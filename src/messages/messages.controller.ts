@@ -9,10 +9,12 @@ import {
   HttpStatus,
   Logger,
   HttpException,
+  Query,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { PaginationDto } from './dto/pagination.dto';
 
 @Controller('messages')
 @UseGuards(JwtAuthGuard) // Proteger todas las rutas del controlador con JWT
@@ -59,7 +61,6 @@ export class MessagesController {
         recipients: message.recipients,
         content: message.content,
         sent: message.sent,
-        delivered: message.delivered,
         createdAt: message.createdAt,
         sentBy: {
           id: userId,
@@ -70,41 +71,63 @@ export class MessagesController {
   }
 
   /**
-   * Endpoint para obtener todos los mensajes enviados por el usuario autenticado
-   * GET /messages/sent
+   * Endpoint para obtener los mensajes enviados por el usuario autenticado con paginación
+   * GET /messages/sent?limit=10&offset=0
    * Requiere autenticación JWT
    */
   @Get('sent')
   @HttpCode(HttpStatus.OK)
-  async getSentMessages(@Request() req) {
+  async getSentMessages(
+    @Request() req,
+    @Query() paginationDto: PaginationDto,
+  ) {
     const userId = req.user.userId;
     const username = req.user.username;
+    const { limit = 10, offset = 0 } = paginationDto;
 
     this.logger.log(
-      `Usuario ${username} (${userId}) consultando sus mensajes enviados`,
+      `Usuario ${username} (${userId}) consultando sus mensajes enviados (limit: ${limit}, offset: ${offset})`,
     );
 
-    const messages = await this.messagesService.getUserMessages(userId);
+    // Obtener mensajes paginados y el total
+    const [messages, total] = await Promise.all([
+      this.messagesService.getUserMessages(userId, limit, offset),
+      this.messagesService.getTotalUserMessages(userId),
+    ]);
+
+    // Calcular información de paginación
+    const currentPage = Math.floor(offset / limit) + 1;
+    const totalPages = Math.ceil(total / limit);
+    const hasNextPage = offset + limit < total;
+    const hasPreviousPage = offset > 0;
 
     return {
       success: true,
-      message: `Se encontraron ${messages.length} mensaje(s)`,
+      message: `Se encontraron ${messages.length} mensaje(s) en esta página`,
       data: {
         user: {
           id: userId,
           username: username,
         },
-        count: messages.length,
         messages: messages.map((msg) => ({
           id: msg._id,
           platform: msg.platform,
           recipients: msg.recipients,
           content: msg.content,
           sent: msg.sent,
-          delivered: msg.delivered,
           createdAt: msg.createdAt,
           hasFile: !!msg.file,
         })),
+        pagination: {
+          total, // Total de mensajes
+          count: messages.length, // Mensajes en esta página
+          limit, // Límite por página
+          offset, // Offset actual
+          currentPage, // Página actual
+          totalPages, // Total de páginas
+          hasNextPage, // Hay siguiente página
+          hasPreviousPage, // Hay página anterior
+        },
       },
     };
   }

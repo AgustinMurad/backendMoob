@@ -77,12 +77,6 @@ export class Message extends Document {
   })
   sent: boolean;
 
-  @Prop({
-    type: Boolean,
-    default: false,
-  })
-  delivered: boolean;
-
   @Prop({ type: Date })
   createdAt?: Date;
 
@@ -96,7 +90,6 @@ export const MessageSchema = SchemaFactory.createForClass(Message);
 MessageSchema.index({ senderId: 1 });
 MessageSchema.index({ platform: 1 });
 MessageSchema.index({ sent: 1 });
-MessageSchema.index({ delivered: 1 });
 MessageSchema.index({ createdAt: -1 });
 
 // Índice compuesto para consultas comunes

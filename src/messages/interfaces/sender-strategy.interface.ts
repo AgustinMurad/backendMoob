@@ -12,7 +12,6 @@ export interface MassMessageData {
 
 export interface SendResult {
   success: boolean;
-  delivered: boolean;
   statusCode?: number;
   message?: string;
 }
