@@ -75,14 +75,13 @@ export class Message extends Document {
     type: Boolean,
     default: false,
   })
-  delivered: boolean;
+  sent: boolean;
 
   @Prop({
-    type: String,
-    required: false,
-    default: null,
+    type: Boolean,
+    default: false,
   })
-  errorMessage?: string;
+  delivered: boolean;
 
   @Prop({ type: Date })
   createdAt?: Date;

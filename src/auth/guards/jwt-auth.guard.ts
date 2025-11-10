@@ -1,19 +1,23 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  ExecutionContext,
+  BadRequestException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Observable } from 'rxjs';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
-  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
-    // Aquí puedes añadir lógica personalizada antes de la validación
-    return super.canActivate(context);
-  }
+  canActivate(
+    context: ExecutionContext,
+  ): boolean | Promise<boolean> | Observable<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const token = request.headers.authorization;
 
-  handleRequest(err: any, user: any, info: any) {
-    // Puedes lanzar una excepción personalizada aquí
-    if (err || !user) {
-      throw err || new Error('Usuario no autorizado');
+    if (!token) {
+      throw new BadRequestException('auth parameters missing');
     }
-    return user;
+
+    return super.canActivate(context);
   }
 }

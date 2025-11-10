@@ -33,7 +33,6 @@ Configure la base de datos utilizando MongoDB Atlas con Mongoose.
 - `content`: string, 1-5000 caracteres
 - `file`: objeto opcional (name, path, type, size)
 - `sent`, `delivered`: boolean (default: false)
-- `errorMessage`: string opcional
 - `createdAt`, `updatedAt`: automáticos
 
 **Características:**
