@@ -48,10 +48,6 @@ Configure la base de datos utilizando MongoDB Atlas con Mongoose.
 
 **Archivo `.env`:**
 
-```env
-MONGODB_URI=mongodb+srv://root:root@moob.flv6ehj.mongodb.net/moob-db?retryWrites=true&w=majority
-```
-
 ---
 
 ## Estructura de carpetas

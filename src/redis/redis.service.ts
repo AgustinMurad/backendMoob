@@ -23,7 +23,7 @@ export class RedisService implements OnModuleDestroy {
     });
 
     this.client.on('connect', () => {
-      this.logger.log(`✅ Conectado a Redis en ${host}:${port}`);
+      this.logger.log(`Conectado a Redis en ${host}:${port}`);
     });
 
     this.client.on('error', (err) => {
@@ -44,7 +44,7 @@ export class RedisService implements OnModuleDestroy {
     try {
       const value = await this.client.get(key);
       if (value) {
-        this.logger.debug(`✅ Cache HIT: ${key}`);
+        this.logger.debug(`Cache HIT: ${key}`);
       } else {
         this.logger.debug(`❌ Cache MISS: ${key}`);
       }
@@ -66,11 +66,11 @@ export class RedisService implements OnModuleDestroy {
       if (ttlSeconds) {
         await this.client.setex(key, ttlSeconds, value);
         this.logger.debug(
-          `✅ Cache SET: ${key} (TTL: ${ttlSeconds}s = ${ttlSeconds / 3600}h)`,
+          `Cache SET: ${key} (TTL: ${ttlSeconds}s = ${ttlSeconds / 3600}h)`,
         );
       } else {
         await this.client.set(key, value);
-        this.logger.debug(`✅ Cache SET: ${key} (sin TTL)`);
+        this.logger.debug(`Cache SET: ${key} (sin TTL)`);
       }
       return true;
     } catch (error) {
@@ -87,7 +87,7 @@ export class RedisService implements OnModuleDestroy {
   async del(...keys: string[]): Promise<number> {
     try {
       const result = await this.client.del(...keys);
-      this.logger.debug(`✅ Cache DELETE: ${keys.join(', ')} (${result} keys)`);
+      this.logger.debug(`Cache DELETE: ${keys.join(', ')} (${result} keys)`);
       return result;
     } catch (error) {
       this.logger.error(
@@ -141,9 +141,7 @@ export class RedisService implements OnModuleDestroy {
         return 0;
       }
       const result = await this.client.del(...keys);
-      this.logger.debug(
-        `✅ Eliminadas ${result} claves con patrón: ${pattern}`,
-      );
+      this.logger.debug(`Eliminadas ${result} claves con patrón: ${pattern}`);
       return result;
     } catch (error) {
       this.logger.error(
