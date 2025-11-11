@@ -20,7 +20,7 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { PaginationDto } from './dto/pagination.dto';
 
 @Controller('messages')
-@UseGuards(JwtAuthGuard) // Proteger todas las rutas del controlador con JWT
+@UseGuards(JwtAuthGuard) // Proteger rutas del controlador con JWT
 export class MessagesController {
   private readonly logger = new Logger(MessagesController.name);
 
@@ -100,13 +100,15 @@ export class MessagesController {
       `Usuario ${username} (${userId}) consultando sus mensajes enviados (limit: ${limit}, offset: ${offset})`,
     );
 
-    // Obtener mensajes paginados y el total
-    const [messages, total] = await Promise.all([
+    // Paginacion y total (con soporte de caché de Redis)
+    const [messagesResult, total] = await Promise.all([
       this.messagesService.getUserMessages(userId, limit, offset),
       this.messagesService.getTotalUserMessages(userId),
     ]);
 
-    // Calcular información de paginación
+    const { messages, fromCache } = messagesResult;
+
+    // calcular paginacion con limite y offset
     const currentPage = Math.floor(offset / limit) + 1;
     const totalPages = Math.ceil(total / limit);
     const hasNextPage = offset + limit < total;
@@ -114,7 +116,7 @@ export class MessagesController {
 
     return {
       success: true,
-      message: `Se encontraron ${messages.length} mensaje(s) en esta página`,
+      message: `Se encontraron ${messages.length} mensaje(s) en esta página ${fromCache ? '(desde caché)' : '(desde BD)'}`,
       data: {
         user: {
           id: userId,
@@ -138,6 +140,11 @@ export class MessagesController {
           totalPages, // Total de páginas
           hasNextPage, // Hay siguiente página
           hasPreviousPage, // Hay página anterior
+        },
+        cache: {
+          hit: fromCache, // true si viene de Redis, false si viene de MongoDB
+          ttl: '24 horas', // Tiempo de vida del caché
+          source: fromCache ? 'Redis' : 'MongoDB',
         },
       },
     };

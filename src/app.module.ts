@@ -7,6 +7,7 @@ import { getDatabaseConfig } from './config/database.config';
 import { UsersModule } from './users/users.module';
 import { MessagesModule } from './messages/messages.module';
 import { AuthModule } from './auth/auth.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -20,6 +21,9 @@ import { AuthModule } from './auth/auth.module';
     MongooseModule.forRootAsync({
       useFactory: getDatabaseConfig,
     }),
+
+    // Configuración de Redis (cache global)
+    RedisModule,
 
     // Módulos de la aplicación
     AuthModule,

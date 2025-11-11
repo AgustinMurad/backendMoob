@@ -9,15 +9,18 @@ import { Message, MessageDocument } from './schemas/message.schema';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { MessageSenderFactory } from './factories/message-sender.factory';
 import { CloudinaryService } from './services/cloudinary.service';
+import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class MessagesService {
   private readonly logger = new Logger(MessagesService.name);
+  private readonly CACHE_TTL = 24 * 60 * 60; // 24 horas en segundos
 
   constructor(
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
     private readonly messageSenderFactory: MessageSenderFactory,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly redisService: RedisService,
   ) {}
 
   /**
@@ -71,7 +74,7 @@ export class MessagesService {
             file: fileUrl,
           });
         } else {
-          // Fallback: enviar uno por uno si no hay método masivo
+          // Fallback: enviar uno por uno en caso de que el servicio no permita envio masivo
           const results = await Promise.all(
             recipients.map((recipient) =>
               senderStrategy.sendMessage({ recipient, content, file: fileUrl }),
@@ -83,7 +86,7 @@ export class MessagesService {
         }
       }
 
-      // Guardar el mensaje en la base de datos
+      // Guardar en la db
       const newMessage = new this.messageModel({
         senderId: userId,
         recipients,
@@ -99,6 +102,9 @@ export class MessagesService {
         `Mensaje ${String(savedMessage._id)} guardado. Estado de envío: ${sendResult.success ? 'Exitoso' : 'Fallido'}`,
       );
 
+      // Invalidar caché del usuario después de enviar un mensaje
+      await this.invalidateUserCache(userId);
+
       return savedMessage;
     } catch (error) {
       this.logger.error(
@@ -113,33 +119,72 @@ export class MessagesService {
 
   /**
    * Obtiene los mensajes enviados por un usuario específico con paginación
+   * Usa caché de Redis para mejorar el rendimiento
    * @param userId ID del usuario autenticado
    * @param limit Número máximo de mensajes a retornar (por defecto: 10)
    * @param offset Número de mensajes a saltar (por defecto: 0)
-   * @returns Array de mensajes del usuario paginados
+   * @returns Objeto con mensajes y metadata de caché
    */
   async getUserMessages(
     userId: string,
     limit: number = 10,
     offset: number = 0,
-  ): Promise<MessageDocument[]> {
+  ): Promise<{ messages: MessageDocument[]; fromCache: boolean }> {
     try {
       this.logger.log(
         `Consultando mensajes del usuario ${userId} (limit: ${limit}, offset: ${offset})`,
       );
 
+      // Generar clave de caché basada en userId, limit y offset
+      const cacheKey = `messages:${userId}:${limit}:${offset}`;
+
+      // 1. Intentar obtener desde Redis
+      const cachedData = await this.redisService.get(cacheKey);
+
+      if (cachedData) {
+        // Cache HIT: Parsear y devolver los datos cacheados
+        const messages = JSON.parse(cachedData);
+        this.logger.log(
+          `✅ [CACHE HIT] Mensajes obtenidos desde Redis para usuario ${userId}`,
+        );
+        return {
+          messages,
+          fromCache: true,
+        };
+      }
+
+      // Cache MISS: Consultar MongoDB
+      this.logger.log(
+        `❌ [CACHE MISS] Consultando MongoDB para usuario ${userId}`,
+      );
+
       const messages = await this.messageModel
         .find({ senderId: userId })
         .sort({ createdAt: -1 }) // Más recientes primero
-        .skip(offset) // Saltar los primeros 'offset' mensajes
-        .limit(limit) // Limitar la cantidad de resultados
+        .skip(offset) // Saltar hasta el 'offset' mensajes
+        .limit(limit) // Limitar resultados
         .exec();
 
       this.logger.log(
         `Se encontraron ${messages.length} mensaje(s) para el usuario ${userId}`,
       );
 
-      return messages;
+      // 2. Guardar en Redis con TTL de 24 horas
+      if (messages.length > 0) {
+        await this.redisService.set(
+          cacheKey,
+          JSON.stringify(messages),
+          this.CACHE_TTL,
+        );
+        this.logger.log(
+          `💾 Mensajes guardados en caché para usuario ${userId} (TTL: 24h)`,
+        );
+      }
+
+      return {
+        messages,
+        fromCache: false,
+      };
     } catch (error) {
       this.logger.error(
         `Error al obtener mensajes del usuario ${userId}: ${error.message}`,
@@ -208,6 +253,60 @@ export class MessagesService {
         error.stack,
       );
       throw new InternalServerErrorException('Error al obtener estadísticas');
+    }
+  }
+
+  /**
+   * Invalida el caché de mensajes de un usuario
+   * Elimina todas las claves que coincidan con el patrón messages:userId:*
+   * @param userId ID del usuario
+   */
+  private async invalidateUserCache(userId: string): Promise<void> {
+    try {
+      const pattern = `messages:${userId}:*`;
+      const deletedKeys = await this.redisService.deleteByPattern(pattern);
+      this.logger.log(
+        `🗑️ Caché invalidado para usuario ${userId} (${deletedKeys} claves eliminadas)`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error al invalidar caché del usuario ${userId}: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Elimina un mensaje por ID y invalida el caché del usuario
+   * @param messageId ID del mensaje a eliminar
+   * @param userId ID del usuario (para verificar permisos)
+   * @returns true si se eliminó exitosamente
+   */
+  async deleteMessage(messageId: string, userId: string): Promise<boolean> {
+    try {
+      const result = await this.messageModel.deleteOne({
+        _id: messageId,
+        senderId: userId, // Solo puede eliminar sus propios mensajes
+      });
+
+      if (result.deletedCount > 0) {
+        this.logger.log(`Mensaje ${messageId} eliminado por usuario ${userId}`);
+
+        // Invalidar caché del usuario
+        await this.invalidateUserCache(userId);
+
+        return true;
+      }
+
+      this.logger.warn(
+        `Intento de eliminar mensaje ${messageId} por usuario ${userId} falló`,
+      );
+      return false;
+    } catch (error) {
+      this.logger.error(
+        `Error al eliminar mensaje ${messageId}: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Error al eliminar el mensaje');
     }
   }
 }
