@@ -10,7 +10,10 @@ import {
   Logger,
   HttpException,
   Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -27,12 +30,21 @@ export class MessagesController {
    * Endpoint para enviar mensajes a través de diferentes plataformas
    * POST /messages/send
    * Requiere autenticación JWT
+   * Acepta un archivo opcional mediante multipart/form-data con límite de 10MB
    */
   @Post('send')
   @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10 MB
+      },
+    }),
+  )
   async sendMessage(
     @Request() req,
     @Body() createMessageDto: CreateMessageDto,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
     if (!req.user) {
       throw new HttpException(
@@ -44,22 +56,24 @@ export class MessagesController {
     const username = req.user.username;
 
     this.logger.log(
-      `Usuario ${username} (${userId}) enviando mensaje por ${createMessageDto.platform}`,
+      `Usuario ${username} (${userId}) enviando mensaje por ${createMessageDto.platform}${file ? ' con archivo adjunto' : ''}`,
     );
 
     const message = await this.messagesService.sendMessage(
       createMessageDto,
       userId,
+      file,
     );
 
     return {
       success: true,
-      message: 'Mensaje procesado',
+      message: 'Mensaje enviado correctamente',
       data: {
         id: message._id,
         platform: message.platform,
         recipients: message.recipients,
         content: message.content,
+        fileUrl: message.fileUrl,
         sent: message.sent,
         createdAt: message.createdAt,
         sentBy: {
@@ -77,10 +91,7 @@ export class MessagesController {
    */
   @Get('sent')
   @HttpCode(HttpStatus.OK)
-  async getSentMessages(
-    @Request() req,
-    @Query() paginationDto: PaginationDto,
-  ) {
+  async getSentMessages(@Request() req, @Query() paginationDto: PaginationDto) {
     const userId = req.user.userId;
     const username = req.user.username;
     const { limit = 10, offset = 0 } = paginationDto;
@@ -116,7 +127,7 @@ export class MessagesController {
           content: msg.content,
           sent: msg.sent,
           createdAt: msg.createdAt,
-          hasFile: !!msg.file,
+          fileUrl: msg.fileUrl,
         })),
         pagination: {
           total, // Total de mensajes

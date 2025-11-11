@@ -11,20 +11,6 @@ export enum Platform {
   WHATSAPP = 'whatsapp',
 }
 
-export class FileMetadata {
-  @Prop({ required: true })
-  name: string;
-
-  @Prop({ required: true })
-  path: string; // Determinar implementacion
-
-  @Prop({ required: true })
-  type: string; // MIME type
-
-  @Prop({ required: true })
-  size: number; // bytes
-}
-
 @Schema({
   timestamps: true,
   versionKey: false,
@@ -65,11 +51,11 @@ export class Message extends Document {
   content: string;
 
   @Prop({
-    type: Object,
+    type: String,
     required: false,
     default: null,
   })
-  file?: FileMetadata;
+  fileUrl?: string;
 
   @Prop({
     type: Boolean,

@@ -9,6 +9,5 @@ export {
   Message,
   MessageSchema,
   Platform,
-  FileMetadata,
 } from '../messages/schemas/message.schema';
 export type { MessageDocument } from '../messages/schemas/message.schema';

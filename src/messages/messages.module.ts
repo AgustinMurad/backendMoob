@@ -13,6 +13,9 @@ import { WhatsappSender } from './strategies/whatsapp.sender';
 // Factory Pattern
 import { MessageSenderFactory } from './factories/message-sender.factory';
 
+// Cloudinary Module
+import { CloudinaryModule } from './config/cloudinary.module';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -21,6 +24,7 @@ import { MessageSenderFactory } from './factories/message-sender.factory';
         schema: MessageSchema,
       },
     ]),
+    CloudinaryModule,
   ],
   controllers: [MessagesController],
   providers: [

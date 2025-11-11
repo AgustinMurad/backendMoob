@@ -38,6 +38,7 @@ export class TelegramSender implements SenderStrategy {
         `[TELEGRAM] Enviando mensaje a chat_id: ${data.recipient}`,
       );
       this.logger.debug(`Contenido: ${data.content}`);
+      this.logger.debug(`Archivo: ${data.file || 'ninguno'}`);
 
       if (!this.token) {
         this.logger.error(
@@ -47,6 +48,25 @@ export class TelegramSender implements SenderStrategy {
           success: false,
           message: 'Token no configurado',
         };
+      }
+
+      // Si hay archivo, enviarlo con el mensaje
+      if (data.file) {
+        const fileSent = await this.sendFile(
+          data.recipient,
+          data.file,
+          data.content,
+        );
+        if (fileSent) {
+          return {
+            success: true,
+            statusCode: 200,
+          };
+        }
+        // Si falla el envío del archivo, continuar enviando solo el texto
+        this.logger.warn(
+          '[TELEGRAM] Archivo no pudo ser enviado, enviando solo texto',
+        );
       }
 
       // Enviar mensaje de texto
@@ -60,11 +80,6 @@ export class TelegramSender implements SenderStrategy {
         this.logger.log(
           `[TELEGRAM] ✅ Mensaje enviado exitosamente a ${data.recipient}`,
         );
-
-        // Si hay archivo adjunto, enviarlo también
-        if (data.file) {
-          await this.sendFile(data.recipient, data.file);
-        }
 
         return {
           success: true,
@@ -159,37 +174,55 @@ export class TelegramSender implements SenderStrategy {
   /**
    * Envía un archivo a través de Telegram
    * @param chatId ID del chat
-   * @param file Archivo en formato base64 o URL
+   * @param file Archivo en formato URL (Cloudinary)
+   * @param caption Texto opcional que acompaña al archivo
    * @returns true si se envió correctamente
    */
-  private async sendFile(chatId: string, file: string): Promise<boolean> {
+  private async sendFile(
+    chatId: string,
+    file: string,
+    caption?: string,
+  ): Promise<boolean> {
     try {
       this.logger.log(`[TELEGRAM] Enviando archivo a chat_id: ${chatId}`);
+      this.logger.debug(`URL del archivo: ${file}`);
 
-      // Determinar si es una URL o un archivo base64
-      if (file.startsWith('http://') || file.startsWith('https://')) {
-        // Si es una URL, enviarlo como documento
-        const response = await axios.post(`${this.baseUrl}/sendDocument`, {
-          chat_id: chatId,
-          document: file,
-        });
-
-        if (response.data.ok) {
-          this.logger.log(`[TELEGRAM] ✅ Archivo enviado exitosamente`);
-          return true;
-        }
-      } else {
-        // Si es base64 u otro formato, por ahora solo logeamos
+      // Verificar si es una URL válida
+      if (!file.startsWith('http://') && !file.startsWith('https://')) {
         this.logger.warn(
-          `[TELEGRAM] ⚠️ Archivo en formato no soportado aún (base64). Solo se soportan URLs`,
+          `[TELEGRAM] ⚠️ Archivo en formato no soportado. Solo se soportan URLs`,
         );
+        return false;
       }
 
-      return false;
+      // Enviar como documento con caption opcional
+      const response = await axios.post(`${this.baseUrl}/sendDocument`, {
+        chat_id: chatId,
+        document: file,
+        caption: caption || undefined,
+        parse_mode: 'HTML',
+      });
+
+      if (response.data.ok) {
+        this.logger.log(`[TELEGRAM] ✅ Archivo enviado exitosamente`);
+        return true;
+      } else {
+        this.logger.error(
+          `[TELEGRAM] ❌ Error al enviar archivo: ${JSON.stringify(response.data)}`,
+        );
+        return false;
+      }
     } catch (error) {
-      this.logger.error(
-        `[TELEGRAM] ❌ Error al enviar archivo: ${error.message}`,
-      );
+      if (axios.isAxiosError(error)) {
+        this.logger.error(
+          `[TELEGRAM] ❌ Error al enviar archivo: ${error.response?.data?.description || error.message}`,
+        );
+        this.logger.debug(`Detalles: ${JSON.stringify(error.response?.data)}`);
+      } else {
+        this.logger.error(
+          `[TELEGRAM] ❌ Error inesperado al enviar archivo: ${error.message}`,
+        );
+      }
       return false;
     }
   }

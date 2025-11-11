@@ -8,6 +8,7 @@ import { Model } from 'mongoose';
 import { Message, MessageDocument } from './schemas/message.schema';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { MessageSenderFactory } from './factories/message-sender.factory';
+import { CloudinaryService } from './services/cloudinary.service';
 
 @Injectable()
 export class MessagesService {
@@ -16,25 +17,38 @@ export class MessagesService {
   constructor(
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
     private readonly messageSenderFactory: MessageSenderFactory,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   /**
    * Envía un mensaje usando la estrategia correspondiente y lo guarda en la base de datos
    * @param createMessageDto Datos del mensaje a enviar
    * @param userId ID del usuario autenticado que envía el mensaje
+   * @param file Archivo opcional adjunto al mensaje (recibido por Multer)
    * @returns El mensaje guardado en la base de datos
    */
   async sendMessage(
     createMessageDto: CreateMessageDto,
     userId: string,
+    file?: Express.Multer.File,
   ): Promise<MessageDocument> {
-    const { platform, recipients, content, file } = createMessageDto;
+    const { platform, recipients, content } = createMessageDto;
 
     this.logger.log(
       `Usuario ${userId} intentando enviar mensaje por ${platform} a ${recipients.length} destinatario(s)`,
     );
 
     try {
+      // Subir archivo a Cloudinary si existe
+      let fileUrl: string | undefined;
+      if (file) {
+        this.logger.log(
+          `Subiendo archivo a Cloudinary: ${file.originalname} (${file.size} bytes)`,
+        );
+        fileUrl = await this.cloudinaryService.uploadFile(file);
+        this.logger.log(`Archivo subido exitosamente: ${fileUrl}`);
+      }
+
       // Obtener la estrategia de envío correspondiente usando Factory Pattern
       const senderStrategy = this.messageSenderFactory.getSender(platform);
 
@@ -46,7 +60,7 @@ export class MessagesService {
         sendResult = await senderStrategy.sendMessage({
           recipient: recipients[0],
           content,
-          file,
+          file: fileUrl,
         });
       } else {
         // Envío masivo
@@ -54,13 +68,13 @@ export class MessagesService {
           sendResult = await senderStrategy.sendMassMessage({
             recipients,
             content,
-            file,
+            file: fileUrl,
           });
         } else {
           // Fallback: enviar uno por uno si no hay método masivo
           const results = await Promise.all(
             recipients.map((recipient) =>
-              senderStrategy.sendMessage({ recipient, content, file }),
+              senderStrategy.sendMessage({ recipient, content, file: fileUrl }),
             ),
           );
           sendResult = {
@@ -75,7 +89,7 @@ export class MessagesService {
         recipients,
         platform,
         content,
-        file,
+        fileUrl,
         sent: sendResult.success || false,
       });
 
