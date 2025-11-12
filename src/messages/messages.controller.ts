@@ -169,9 +169,15 @@ export class MessagesController {
       file,
     );
 
+    // Retornar el estado delenvío
+    const isSuccess = message.sent;
+    const responseMessage = isSuccess
+      ? 'Mensaje enviado correctamente'
+      : 'El mensaje fue guardado pero no pudo ser enviado';
+
     return {
-      success: true,
-      message: 'Mensaje enviado correctamente',
+      success: isSuccess,
+      message: responseMessage,
       data: {
         id: message._id,
         platform: message.platform,

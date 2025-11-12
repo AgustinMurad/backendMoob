@@ -24,12 +24,17 @@ export class SlackSender implements SenderStrategy {
       // Simulación de envío exitoso
       await this.simulateDelay(400);
 
-      this.logger.log(
-        `[SLACK] ✅ Mensaje enviado exitosamente a ${data.recipient}`,
-      );
+      // this.logger.log(
+      //   `[SLACK] ✅ Mensaje enviado exitosamente a ${data.recipient}`,
+      // );
+      // return {
+      //   success: true,
+      //   statusCode: 200,
+      // };
       return {
-        success: true,
-        statusCode: 200,
+        success: false,
+        message: 'Error al enviar mensaje',
+        statusCode: 500,
       };
     } catch (error) {
       this.logger.error(`[SLACK] ❌ Error al enviar mensaje: ${error.message}`);
