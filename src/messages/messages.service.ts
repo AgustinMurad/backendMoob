@@ -275,38 +275,4 @@ export class MessagesService {
     }
   }
 
-  /**
-   * Elimina un mensaje por ID y invalida el caché del usuario
-   * @param messageId ID del mensaje a eliminar
-   * @param userId ID del usuario (para verificar permisos)
-   * @returns true si se eliminó exitosamente
-   */
-  async deleteMessage(messageId: string, userId: string): Promise<boolean> {
-    try {
-      const result = await this.messageModel.deleteOne({
-        _id: messageId,
-        senderId: userId, // Solo puede eliminar sus propios mensajes
-      });
-
-      if (result.deletedCount > 0) {
-        this.logger.log(`Mensaje ${messageId} eliminado por usuario ${userId}`);
-
-        // Invalidar caché del usuario
-        await this.invalidateUserCache(userId);
-
-        return true;
-      }
-
-      this.logger.warn(
-        `Intento de eliminar mensaje ${messageId} por usuario ${userId} falló`,
-      );
-      return false;
-    } catch (error) {
-      this.logger.error(
-        `Error al eliminar mensaje ${messageId}: ${error.message}`,
-        error.stack,
-      );
-      throw new InternalServerErrorException('Error al eliminar el mensaje');
-    }
-  }
 }
