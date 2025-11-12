@@ -80,9 +80,60 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.{ts,js}",
+      "!**/*.spec.ts",
+      "!**/*.dto.ts",
+      "!**/*.entity.ts",
+      "!**/*.schema.ts",
+      "!**/*.interface.ts",
+      "!**/*.module.ts",
+      "!**/*.config.ts",
+      "!**/main.ts",
+      "!**/index.ts",
+      "!**/node_modules/**",
+      "!**/dist/**",
+      "!**/coverage/**",
+      "!**/test/**"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/dist/",
+      "/coverage/",
+      ".dto.ts$",
+      ".entity.ts$",
+      ".schema.ts$",
+      ".interface.ts$",
+      ".module.ts$",
+      ".config.ts$",
+      "main.ts$"
+    ],
+    "coverageThreshold": {
+      "./src/auth/auth.service.ts": {
+        "branches": 85,
+        "functions": 100,
+        "lines": 95,
+        "statements": 95
+      },
+      "./src/messages/messages.service.ts": {
+        "branches": 84,
+        "functions": 100,
+        "lines": 98,
+        "statements": 98
+      },
+      "./src/app.service.ts": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      }
+    },
+    "coverageReporters": [
+      "text",
+      "text-summary",
+      "html",
+      "lcov"
+    ]
   }
 }

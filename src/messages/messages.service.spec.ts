@@ -434,6 +434,23 @@ describe('MessagesService', () => {
       });
       expect(result).toBe(totalMessages);
     });
+
+    it('should throw InternalServerErrorException if error exist', async () => {
+      // Arrange
+      const userId = 'user123';
+
+      mockMessageModel.countDocuments.mockRejectedValue(
+        new Error('Database error'),
+      );
+
+      // Act & Assert
+      await expect(service.getTotalUserMessages(userId)).rejects.toThrow(
+        InternalServerErrorException,
+      );
+      await expect(service.getTotalUserMessages(userId)).rejects.toThrow(
+        'Error al contar los mensajes',
+      );
+    });
   });
 
   describe('getUserMessageStats', () => {
