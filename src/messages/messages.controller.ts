@@ -27,6 +27,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { PaginationDto } from './dto/pagination.dto';
+import { multerConfig } from '../config/upload.config';
 
 @ApiTags('Messages')
 @ApiBearerAuth('JWT-auth')
@@ -41,21 +42,17 @@ export class MessagesController {
    * Endpoint para enviar mensajes a través de diferentes plataformas
    * POST /messages/send
    * Requiere autenticación JWT
-   * Acepta un archivo opcional mediante multipart/form-data con límite de 10MB
+   * Acepta un archivo opcional mediante multipart/form-data
+   * Tipos permitidos: imágenes (jpg, jpeg, png, webp) y PDF
+   * Tamaño máximo: configurado en MAX_FILE_SIZE_MB (por defecto 10MB)
    */
   @Post('send')
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: {
-        fileSize: 10 * 1024 * 1024, // 10 MB
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file', multerConfig))
   @ApiOperation({
     summary: 'Enviar mensaje por plataforma',
     description:
-      'Envía un mensaje a través de la plataforma especificada (Telegram, Slack, Discord, WhatsApp). Soporta archivos adjuntos opcionales de hasta 10MB. Los archivos se suben a Cloudinary automáticamente.',
+      'Envía un mensaje a través de la plataforma especificada (Telegram, Slack, Discord, WhatsApp). Soporta archivos adjuntos opcionales (imágenes: jpg, jpeg, png, webp | PDF) con tamaño máximo configurado en MAX_FILE_SIZE_MB (por defecto 10MB). Los archivos se suben a Cloudinary automáticamente.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -88,7 +85,7 @@ export class MessagesController {
           type: 'string',
           format: 'binary',
           description:
-            'Archivo opcional (imagen, PDF, video, documento, etc.) - Máximo 10MB. Se sube a Cloudinary automáticamente.',
+            'Archivo opcional: solo se permiten imágenes (jpg, jpeg, png, webp) y PDF. Tamaño máximo configurado en MAX_FILE_SIZE_MB (por defecto 10MB). Se sube a Cloudinary automáticamente.',
         },
       },
     },
@@ -119,14 +116,13 @@ export class MessagesController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Datos inválidos o archivo muy grande',
+    description:
+      'Datos inválidos, archivo muy grande o tipo de archivo no permitido',
     schema: {
       example: {
         statusCode: 400,
-        message: [
-          'Los destinatarios deben ser un array',
-          'La plataforma es requerida',
-        ],
+        message:
+          'Tipo de archivo no permitido. Solo se aceptan imágenes (jpg, jpeg, png, webp) y PDF',
         error: 'Bad Request',
       },
     },
